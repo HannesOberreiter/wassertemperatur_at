@@ -1,0 +1,31 @@
+---
+import "../styles/default.css";
+import Sponsor from "../components/Sponsor.astro";
+import Footer from "../components/Footer.astro";
+const { title } = Astro.props;
+---
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <meta
+      name="description"
+      content="Wassertemperatur und Qualtiät der österreichischen Badegewässer."
+    />
+    <title>{title} 🌊</title>
+  </head>
+  <body
+    class="flex flex-col h-screen justify-between"
+    dark:bg-slate-800
+    dark:text-white"
+  >
+    <div>
+      <slot />
+    </div>
+    <Sponsor />
+    <Footer />
+  </body>
+</html>

@@ -1,0 +1,96 @@
+---
+import DefaultLayout from "../layouts/DefaultLayout.astro";
+import { fetchData, STATES } from "../fetchData";
+const filter = Object.values(STATES);
+const lakes = await fetchData();
+---
+
+<DefaultLayout title="Wassertemperatur">
+  <div class="container mx-auto py-8" x-data="filterLakes()">
+    <!-- Filter Section -->
+    <div class="flex flex-row justify-between">
+      <div class="mb-4">
+        <label for="search" class="font-semibold mr-1">Suche:</label>
+        <input
+          id="search"
+          class="border rounded p-2 text-black"
+          type="text"
+          placeholder="Suche..."
+          x-model="searchFilter"
+          @keyup="count = 0"
+        />
+      </div>
+      <div class="mb-4">
+        <label for="filter" class="font-semibold mr-1">Bundesland:</label>
+        <select
+          id="filter"
+          class="border rounded p-2 text-black"
+          x-model="selectedFilter"
+          x-on:change="count = 0"
+        >
+          <option value="">Alle Bundesländer</option>
+          {filter.map((state) => <option value={state}>{state}</option>)}
+        </select>
+      </div>
+    </div>
+
+    <table class="w-full border-collapse border border-gray-300">
+      <thead>
+        <tr>
+          <th class="p-2 text-left">Gewässer</th>
+          <th class="p-2">Datum</th>
+          <th class="p-2">Temperatur</th>
+          <th class="p-2">Sichttiefe</th>
+          <th class="p-2">Qualität</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          lakes.map((lake) => (
+            <tr
+              x-show={`filter("${lake.BUNDESLAND}", "${lake.BADEGEWAESSERNAME}")`}
+            >
+              <td class="p-2">
+                <a href={`/see/${lake.BADEGEWAESSERNAME.split(",")[0]}`}>
+                  {lake.BADEGEWAESSERNAME}
+                </a>
+              </td>
+              <td class="p-2 text-center">{lake.MESSWERTE[0].D}</td>
+              <td class="p-2 text-right">{lake.MESSWERTE[0].W} °C</td>
+              <td class="p-2 text-right">{lake.MESSWERTE[0].S} °C</td>
+              <td class="p-2 text-center">{lake.MESSWERTE[0].A}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+      <tfoot>
+        Ergebnisse: <span x-text="count"></span>
+      </tfoot>
+    </table>
+    <i>
+      <b>Qualität:</b> 1 Ausgezeichnete Badegewässerqualität, 2 Gute
+      Badegewässerqualität, 3 Mangelhafte Badegewässerqualität, 4 Baden verboten
+      / vom Baden wird abgeraten
+    </i>
+  </div>
+</DefaultLayout>
+
+<script is:inline>
+function filterLakes () {
+  return {
+    selectedFilter: "",
+    searchFilter: "",
+    count: 0,
+    filter (state, name) {
+      const select =
+        this.selectedFilter === "" || this.selectedFilter === state;
+      const search =
+        this.searchFilter === "" ||
+        name.toLowerCase().includes(this.searchFilter.toLowerCase());
+      const result = select && search;
+      if (result) this.count++;
+      return result;
+    },
+  };
+}
+</script>

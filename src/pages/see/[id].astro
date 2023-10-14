@@ -1,0 +1,64 @@
+---
+import DefaultLayout from "../../layouts/DefaultLayout.astro";
+import { fetchData } from "../../fetchData";
+const lakes = await fetchData();
+const { id } = Astro.params;
+
+if (!id) {
+  return {
+    statusCode: 404,
+    body: "Not found",
+  };
+}
+
+if (!lakes) {
+  return {
+    statusCode: 404,
+    body: "Not found",
+  };
+}
+
+if (!lakes.filter((lake) => lake.BADEGEWAESSERNAME.startsWith(id))) {
+  return {
+    statusCode: 404,
+    body: "Not found",
+  };
+}
+
+const details = lakes.filter((lake) => lake.BADEGEWAESSERNAME.startsWith(id));
+---
+
+<DefaultLayout title={id}>
+  <div class="container mx-auto py-8">
+    <button
+      class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded float-right"
+    >
+      <a href="/" class="text-white no-underline">Zurück</a>
+    </button>
+
+    <div class="text-2xl font-bold mb-4 mt-4">Badegewässer: {id}</div>
+    <div class="flex flex-row flex-wrap">
+      {
+        details.map((lake) => (
+          <div>
+            <b class="font-bold underline">{lake.BADEGEWAESSERNAME}</b>
+            <ul class="list-disc list-inside ml-4">
+              {lake.MESSWERTE.map((measurement) => (
+                <li class="mb-2">
+                  <b class="font-bold">{measurement.D}</b>
+                  <ul>
+                    <li>Wassertemperatur: {measurement.W}°C</li>
+                    <li>Seetiefe: {measurement.S}m</li>
+                    <li>Qualtiät: {measurement.A}</li>
+                    <li>Enterokokken: {measurement.E} KBE/100ml</li>
+                    <li>E.Coli: {measurement.E_C} KBE/100ml</li>
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</DefaultLayout>
