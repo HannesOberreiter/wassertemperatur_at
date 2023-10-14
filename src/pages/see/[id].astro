@@ -5,24 +5,18 @@ const lakes = await fetchData();
 const { id } = Astro.params;
 
 if (!id) {
-  return {
-    statusCode: 404,
-    body: "Not found",
-  };
+  Astro.redirect("/404");
+  return;
 }
 
 if (!lakes) {
-  return {
-    statusCode: 404,
-    body: "Not found",
-  };
+  Astro.redirect("/404");
+  return;
 }
 
 if (!lakes.filter((lake) => lake.BADEGEWAESSERNAME.startsWith(id))) {
-  return {
-    statusCode: 404,
-    body: "Not found",
-  };
+  Astro.redirect("/404");
+  return;
 }
 
 const details = lakes.filter((lake) => lake.BADEGEWAESSERNAME.startsWith(id));
