@@ -33,40 +33,41 @@ const lakes = await fetchData();
         </select>
       </div>
     </div>
-
-    <table class="w-full border-collapse border border-gray-300">
-      <thead>
-        <tr>
-          <th class="p-2 text-left">Gewässer</th>
-          <th class="p-2">Datum</th>
-          <th class="p-2">Temperatur</th>
-          <th class="p-2">Sichttiefe</th>
-          <th class="p-2">Qualität</th>
-        </tr>
-      </thead>
-      <tbody>
-        {
-          lakes.map((lake) => (
-            <tr
-              x-show={`filter("${lake.BUNDESLAND}", "${lake.BADEGEWAESSERNAME}")`}
-            >
-              <td class="p-2">
-                <a href={`/see/${lake.BADEGEWAESSERNAME.split(",")[0]}`}>
-                  {lake.BADEGEWAESSERNAME}
-                </a>
-              </td>
-              <td class="p-2 text-center">{lake.MESSWERTE[0].D}</td>
-              <td class="p-2 text-right">{lake.MESSWERTE[0].W} °C</td>
-              <td class="p-2 text-right">{lake.MESSWERTE[0].S} °C</td>
-              <td class="p-2 text-center">{lake.MESSWERTE[0].A}</td>
-            </tr>
-          ))
-        }
-      </tbody>
-      <tfoot>
-        Ergebnisse: <span x-text="count"></span>
-      </tfoot>
-    </table>
+    <div class="overflow-x-auto">
+      <table class="min-w-full border-collapse border border-gray-300">
+        <thead>
+          <tr>
+            <th class="p-2 text-left">Gewässer</th>
+            <th class="p-2">Datum</th>
+            <th class="p-2">Temperatur</th>
+            <th class="p-2">Sichttiefe</th>
+            <th class="p-2">Qualität</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            lakes.map((lake) => (
+              <tr
+                x-show={`filter("${lake.BUNDESLAND}", "${lake.BADEGEWAESSERNAME}")`}
+              >
+                <td class="p-2">
+                  <a href={`/see/${lake.BADEGEWAESSERNAME.split(",")[0]}`}>
+                    {lake.BADEGEWAESSERNAME}
+                  </a>
+                </td>
+                <td class="p-2 text-center">{lake.MESSWERTE[0].D}</td>
+                <td class="p-2 text-right">{lake.MESSWERTE[0].W} °C</td>
+                <td class="p-2 text-right">{lake.MESSWERTE[0].S} °C</td>
+                <td class="p-2 text-center">{lake.MESSWERTE[0].A}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+        <tfoot>
+          Ergebnisse: <span x-text="count"></span>
+        </tfoot>
+      </table>
+    </div>
     <i>
       <b>Qualität:</b> 1 Ausgezeichnete Badegewässerqualität, 2 Gute
       Badegewässerqualität, 3 Mangelhafte Badegewässerqualität, 4 Baden verboten
