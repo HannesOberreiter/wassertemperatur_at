@@ -1,8 +1,8 @@
 ---
 import DefaultLayout from "../layouts/DefaultLayout.astro";
-import { fetchData, STATES } from "../fetchData";
+import { STATES, tableData } from "../fetchData";
 const filter = Object.values(STATES);
-const lakes = await fetchData();
+const lakes = await tableData();
 ---
 
 <DefaultLayout title="Wassertemperatur">
@@ -48,17 +48,26 @@ const lakes = await fetchData();
           {
             lakes.map((lake) => (
               <tr
-                x-show={`filter("${lake.BUNDESLAND}", "${lake.BADEGEWAESSERNAME}")`}
+                class="hover:bg-gray-100"
+                x-show={`filter("${lake.BUNDESLAND}", "${lake.NAME}")`}
               >
-                <td class="p-2">
-                  <a href={`/see/${lake.BADEGEWAESSERNAME.split(",")[0]}`}>
-                    {lake.BADEGEWAESSERNAME}
-                  </a>
+                {lake.AGES ? (
+                  <td class="p-2">
+                    <a href={`/see/${lake.NAME.split(",")[0]}`}>{lake.NAME}</a>
+                  </td>
+                ) : (
+                  <td class="p-2">{lake.NAME}</td>
+                )}
+                <td class="p-2 text-center">{lake.DATUM}</td>
+                <td class="p-2 text-right">
+                  {lake.TEMPERATUR ? lake.TEMPERATUR + "°C" : ""}
                 </td>
-                <td class="p-2 text-center">{lake.MESSWERTE[0].D}</td>
-                <td class="p-2 text-right">{lake.MESSWERTE[0].W}°C</td>
-                <td class="p-2 text-right">{lake.MESSWERTE[0].S}m</td>
-                <td class="p-2 text-center">{lake.MESSWERTE[0].A}</td>
+                <td class="p-2 text-right">
+                  {lake.SICHTTIEFE ? lake.SICHTTIEFE + "m" : ""}
+                </td>
+                <td class="p-2 text-center">
+                  {lake.QUALITÄT ? lake.QUALITÄT : ""}
+                </td>
               </tr>
             ))
           }
@@ -93,5 +102,5 @@ function filterLakes () {
       return result;
     },
   };
-}
+  }
 </script>
