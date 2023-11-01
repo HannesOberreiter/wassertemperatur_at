@@ -58,7 +58,9 @@ const lakes = await tableData();
                 ) : (
                   <td class="p-2">{lake.NAME}</td>
                 )}
-                <td class="p-2 text-center">{lake.DATUM}</td>
+                <td class="p-2 text-center" style="white-space:nowrap">
+                  {lake.DATUM}
+                </td>
                 <td class="p-2 text-right">
                   {lake.TEMPERATUR ? lake.TEMPERATUR + "°C" : ""}
                 </td>
@@ -102,5 +104,5 @@ function filterLakes () {
       return result;
     },
   };
-  }
+}
 </script>
