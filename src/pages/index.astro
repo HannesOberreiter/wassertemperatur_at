@@ -8,8 +8,8 @@ const lakes = await tableData();
 <DefaultLayout title="Wassertemperatur">
   <div class="container mx-auto py-8" x-data="filterLakes()">
     <!-- Filter Section -->
-    <div class="flex flex-row justify-between">
-      <div class="mb-4">
+    <div class="flex flex-col md:flex-row justify-around mb-4">
+      <div class="mb-4 md:mb-0">
         <label for="search" class="font-semibold mr-1">Suche:</label>
         <input
           id="search"
@@ -20,7 +20,7 @@ const lakes = await tableData();
           @keyup="count = 0"
         />
       </div>
-      <div class="mb-4">
+      <div>
         <label for="filter" class="font-semibold mr-1">Bundesland:</label>
         <select
           id="filter"
