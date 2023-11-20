@@ -14,6 +14,6 @@ export default defineConfig({
     alpinejs(),
   ],
   adapter: vercel({
-    maxDuration: 20,
+    maxDuration: 10,
   }),
 });
