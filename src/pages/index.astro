@@ -49,7 +49,7 @@ const lakes = (await timeoutWrapper(tableData)) as Waters[];
           {
             lakes.map((lake) => (
               <tr
-                class="hover:bg-gray-100"
+                class="dark:hover:bg-gray-600 hover:bg-gray-100"
                 x-show={`filter("${lake.BUNDESLAND}", "${lake.NAME}")`}
               >
                 {lake.AGES ? (
