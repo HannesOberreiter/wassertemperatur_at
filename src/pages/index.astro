@@ -1,8 +1,8 @@
 ---
 import DefaultLayout from "../layouts/DefaultLayout.astro";
-import { STATES, tableData } from "../fetchData";
+import { STATES, tableData, timeoutWrapper, type Waters } from "../fetchData";
 const filter = Object.values(STATES);
-const lakes = await tableData();
+const lakes = (await timeoutWrapper(tableData)) as Waters[];
 ---
 
 <DefaultLayout title="Wassertemperatur">
@@ -88,21 +88,21 @@ const lakes = await tableData();
 </DefaultLayout>
 
 <script is:inline>
-function filterLakes () {
-  return {
-    selectedFilter: "",
-    searchFilter: "",
-    count: 0,
-    filter (state, name) {
-      const select =
-        this.selectedFilter === "" || this.selectedFilter === state;
-      const search =
-        this.searchFilter === "" ||
-        name.toLowerCase().includes(this.searchFilter.toLowerCase());
-      const result = select && search;
-      if (result) this.count++;
-      return result;
-    },
-  };
-}
+  function filterLakes() {
+    return {
+      selectedFilter: "",
+      searchFilter: "",
+      count: 0,
+      filter(state, name) {
+        const select =
+          this.selectedFilter === "" || this.selectedFilter === state;
+        const search =
+          this.searchFilter === "" ||
+          name.toLowerCase().includes(this.searchFilter.toLowerCase());
+        const result = select && search;
+        if (result) this.count++;
+        return result;
+      },
+    };
+  }
 </script>

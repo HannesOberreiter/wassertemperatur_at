@@ -47,11 +47,11 @@ type Badegewaesser = {
   }>;
 };
 
-type Data = Badegewaesser & {
+export type Data = Badegewaesser & {
   BUNDESLAND?: string;
 };
 
-type Waters = {
+export type Waters = {
   BUNDESLAND: string;
   AGES: boolean;
   NAME: string;
@@ -74,6 +74,8 @@ export const STATES = {
   Vorarlberg: "Vorarlberg",
 } as const;
 
+const VERCEL_TIMEOUT = 9000;
+
 // https://www.data.gv.at/katalog/dataset/2646025c-8ab9-4850-b76c-c2f508b34798
 const URL_AGES = "https://www.ages.at/typo3temp/badegewaesser_db.json";
 // https://www.data.gv.at/katalog/dataset/586e08a5-1ca6-400b-b2e2-dfd8fd3f429d
@@ -83,7 +85,7 @@ const cacheTable = new Map<string, Waters[]>();
 const cacheAGES = new Map<string, Data[]>();
 const cacheTimestamp = new Map<string, number>();
 
-export const fetchDataAGES = async (): Promise<Data[]> => {
+export async function fetchDataAGES(): Promise<Data[]> {
   if (cacheAGES.has("data") && cacheTimestamp.has("data")) {
     const timestamp = cacheTimestamp.get("data") as number;
     const now = Date.now();
@@ -96,9 +98,16 @@ export const fetchDataAGES = async (): Promise<Data[]> => {
     }
   }
 
+  const timeout = setTimeout(() => {
+    throw new Error("fetchDataAGES took too long");
+  }, VERCEL_TIMEOUT);
+
   const lakes = await fetch(URL_AGES);
+
   const result = (await lakes.json()) as LakesData;
   const data: Data[] = [];
+
+  clearTimeout(timeout);
 
   for (let i = 0; i < result.BUNDESLAENDER.length; i++) {
     const bundesland = result.BUNDESLAENDER[i];
@@ -117,9 +126,9 @@ export const fetchDataAGES = async (): Promise<Data[]> => {
   cacheAGES.set("data", data);
   cacheTimestamp.set("data", Date.now());
   return data;
-};
+}
 
-export const tableData = async (): Promise<Waters[]> => {
+export async function tableData(): Promise<Waters[]> {
   if (cacheTable.has("tableData") && cacheTimestamp.has("tableData")) {
     const timestamp = cacheTimestamp.get("tableData") as number;
     const now = Date.now();
@@ -183,7 +192,22 @@ export const tableData = async (): Promise<Waters[]> => {
   cacheTable.set("tableData", waters);
   cacheTimestamp.set("tableData", Date.now());
   return waters;
-};
+}
+
+export async function timeoutWrapper(fn: Function): Promise<Waters[] | Data[]> {
+  return await new Promise(async (resolve, _reject) => {
+    const timeout = setTimeout(() => {
+      console.error("Server function took too long");
+      resolve([]);
+    }, VERCEL_TIMEOUT);
+
+    const result = await fn();
+
+    clearTimeout(timeout);
+
+    resolve(result);
+  });
+}
 
 function parseZRXP(content: string) {
   const metaRegrex = /SNAME(.*?)\|.*?SWATER(.*?)\|.*?CNAME(.*?)\|/;

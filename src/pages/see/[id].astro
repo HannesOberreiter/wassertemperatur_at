@@ -1,7 +1,8 @@
 ---
 import DefaultLayout from "../../layouts/DefaultLayout.astro";
-import { fetchDataAGES } from "../../fetchData";
-const lakes = await fetchDataAGES();
+import { fetchDataAGES, type Data, timeoutWrapper } from "../../fetchData";
+const lakes = (await timeoutWrapper(fetchDataAGES)) as Data[];
+
 const { id } = Astro.params;
 
 if (!id) {
