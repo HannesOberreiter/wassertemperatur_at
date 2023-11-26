@@ -18,6 +18,7 @@ const lakes = (await timeoutWrapper(tableData)) as Waters[];
           placeholder="Suche..."
           x-model="searchFilter"
           @keyup="count = 0"
+          @keyup.enter="saveQuery()"
         />
       </div>
       <div>
@@ -88,10 +89,26 @@ const lakes = (await timeoutWrapper(tableData)) as Waters[];
 </DefaultLayout>
 
 <script is:inline>
+  const url = new URL(window.location.href);
+  const search = url.searchParams.get("search");
+  const filter = url.searchParams.get("filter");
+
+  const searchEl = document.getElementById("search");
+  const filterEl = document.getElementById("filter");
+  searchEl.value = search ?? "";
+  filterEl.value = filter ?? "";
+
+  function saveQuery() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("search", this.searchFilter);
+    url.searchParams.set("filter", this.selectedFilter);
+    window.history.replaceState({}, "", url);
+  }
+
   function filterLakes() {
     return {
-      selectedFilter: "",
-      searchFilter: "",
+      selectedFilter: filterEl.value,
+      searchFilter: searchEl.value,
       count: 0,
       filter(state, name) {
         const select =
@@ -103,6 +120,7 @@ const lakes = (await timeoutWrapper(tableData)) as Waters[];
         if (result) this.count++;
         return result;
       },
+      saveQuery,
     };
   }
 </script>
