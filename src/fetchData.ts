@@ -58,6 +58,7 @@ export type Waters = {
   AGES: boolean;
   NAME: string;
   DATUM: string;
+  RECENT: boolean;
   TEMPERATUR: number | undefined;
   SICHTTIEFE: number | undefined;
   QUALITÄT: number | undefined;
@@ -172,6 +173,7 @@ export async function tableData(): Promise<Waters[]> {
           TEMPERATUR: badegewaesser.MESSWERTE[0].W,
           SICHTTIEFE: badegewaesser.MESSWERTE[0].S,
           QUALITÄT: badegewaesser.MESSWERTE[0].A,
+          RECENT: dateIsRecent(newDate),
         });
       }
     }
@@ -237,6 +239,7 @@ function parseZRXP(content: string) {
           TEMPERATUR: undefined,
           DATUM: "",
           data: [],
+          RECENT: false,
         };
         if (i > 1) {
           let previous = data[i - 1];
@@ -248,6 +251,7 @@ function parseZRXP(content: string) {
               /(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/,
               "$1-$2-$3 $4:$5"
             );
+            previous.RECENT = dateIsRecent(previous.DATUM);
           }
         }
       }
@@ -301,6 +305,7 @@ export async function fetchAusseerland() {
         TEMPERATUR: parseFloat(temperatur),
         DATUM: isoDate,
         data: [],
+        RECENT: dateIsRecent(isoDate),
       });
     });
 
@@ -309,4 +314,15 @@ export async function fetchAusseerland() {
     console.error(error);
     return [];
   }
+}
+
+/**
+ * @description Check if the date is recent, not older than 2 weeks
+ * @param date string ISO 8601 date
+ */
+function dateIsRecent(date: string) {
+  const now = new Date();
+  const dateObj = new Date(date);
+  const diff = now.getTime() - dateObj.getTime();
+  return diff < 1000 * 60 * 60 * 24 * 14;
 }

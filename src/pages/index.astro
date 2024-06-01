@@ -50,6 +50,11 @@ const lakes = (await timeoutWrapper(tableData)) as Waters[];
             lakes.map((lake) => (
               <tr
                 class="dark:hover:bg-gray-600 hover:bg-gray-100"
+                class:list={[
+                  {
+                    "text-gray-500": !lake.RECENT,
+                  },
+                ]}
                 x-show={`filter("${lake.BUNDESLAND}", "${lake.NAME}")`}
               >
                 {lake.AGES ? (
@@ -81,9 +86,8 @@ const lakes = (await timeoutWrapper(tableData)) as Waters[];
       </table>
     </div>
     <i>
-      <b>Qualität:</b> 1 Ausgezeichnete Badegewässerqualität, 2 Gute
-      Badegewässerqualität, 3 Mangelhafte Badegewässerqualität, 4 Baden verboten
-      / vom Baden wird abgeraten
+      <b>Qualität:</b> 1 Ausgezeichnete Badegewässerqualität, 2 Gute Badegewässerqualität,
+      3 Mangelhafte Badegewässerqualität, 4 Baden verboten / vom Baden wird abgeraten
     </i>
   </div>
 </DefaultLayout>
