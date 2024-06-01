@@ -271,7 +271,7 @@ function parseZRXP(content: string) {
 /**
  * @description E-Mail from 2024-31-05, Tourismusverband Ausseerland Salzkammergut, there is no API for this data. They manually insert the data around 3 times a week based on reported data (Montag, Mittwoch, Freitag). Additionally they send the data to Bergfex.
  */
-export async function fetchAusseerland() {
+async function fetchAusseerland() {
   try {
     const url =
       "https://www.steiermark.com/de/Ausseerland-Salzkammergut/Region/Sommerfrische/Seen-im-Ausseerland/Wassertemperaturen";
