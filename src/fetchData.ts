@@ -89,7 +89,6 @@ const cacheAGES = new Map<string, Data[]>();
 const cacheTimestamp = new Map<string, number>();
 
 export async function fetchDataAGES(): Promise<Data[]> {
-  console.log("test");
   if (cacheAGES.has("data") && cacheTimestamp.has("data")) {
     const timestamp = cacheTimestamp.get("data") as number;
     const now = Date.now();
@@ -138,7 +137,7 @@ export async function tableData(): Promise<Waters[]> {
     const now = Date.now();
     const diff = now - timestamp;
     if (diff > 1000 * 60 * 60 * 5) {
-      console.log("chartData from cache is too old");
+      console.debug("data from cache is too old");
       cacheTable.delete("tableData");
       cacheTimestamp.delete("tableData");
     } else {
@@ -150,9 +149,15 @@ export async function tableData(): Promise<Waters[]> {
   const fetchAGES = fetch(URL_AGES);
   const fetchOÖ = fetch(URL_OÖ);
   const fetchAusseerlandPromise = fetchAusseerland();
+  const fetchCarinthiaPromise = fetchCarinthia();
 
-  const [responseAGES, responseOÖ, responseAusseerland] =
-    await Promise.allSettled([fetchAGES, fetchOÖ, fetchAusseerlandPromise]);
+  const [responseAGES, responseOÖ, responseAusseerland, responseCarinthia] =
+    await Promise.allSettled([
+      fetchAGES,
+      fetchOÖ,
+      fetchAusseerlandPromise,
+      fetchCarinthiaPromise,
+    ]);
 
   if (responseAGES.status === "rejected") console.error(responseAGES.reason);
   if (responseOÖ.status === "rejected") console.error(responseOÖ.reason);
@@ -188,8 +193,11 @@ export async function tableData(): Promise<Waters[]> {
   }
 
   if (responseAusseerland.status === "fulfilled") {
-    const data = responseAusseerland.value;
-    waters = waters.concat(data);
+    waters = waters.concat(responseAusseerland.value);
+  }
+
+  if (responseCarinthia.status === "fulfilled") {
+    waters = waters.concat(responseCarinthia.value);
   }
 
   waters.sort((a, b) => {
@@ -302,7 +310,7 @@ async function fetchAusseerland() {
         AGES: false,
         SICHTTIEFE: undefined,
         QUALITÄT: undefined,
-        TEMPERATUR: parseFloat(temperatur),
+        TEMPERATUR: parseFloat(temperatur.replace(",", ".")),
         DATUM: isoDate,
         data: [],
         RECENT: dateIsRecent(isoDate),
@@ -325,4 +333,128 @@ function dateIsRecent(date: string) {
   const dateObj = new Date(date);
   const diff = now.getTime() - dateObj.getTime();
   return diff < 1000 * 60 * 60 * 24 * 14;
+}
+
+async function fetchCarinthia() {
+  type CarinthiaLake = {
+    datum: string;
+    gewasser: string;
+    hw1: number;
+    hw10: number;
+    hw100: number;
+    hw2: number;
+    hw30: number;
+    hw5: number;
+    metrics: number;
+    metrics2: string;
+    mjnw: number;
+    mw: number;
+    nnw: number;
+    pegelnullpunkt: number;
+    rhhw: number;
+    station: string;
+    stationsbetreiber: string;
+    stationsnummer: number;
+    webgrafik: number;
+  };
+
+  type CarinthiaRiver = {
+    bs: string;
+    datum: string;
+    einzugsgebiet: number;
+    gewasser: string;
+    group: string;
+    hq1: number;
+    hq10: number;
+    hq100: number;
+    hq30: number;
+    hq300: number;
+    hq5: number;
+    level: string;
+    metrics: string;
+    mjnqt: number;
+    mq: number;
+    nqkrit: number;
+    nqt: number;
+    pegelnullpunkt: number;
+    rhhq: number;
+    station: string;
+    stationsbetreiber: string;
+    stationsnummer: number;
+    webgrafik: number;
+  };
+
+  const urlLakes =
+    "https://hydrographie.ktn.gv.at/DE/repos/evoscripts/hydrografischer/getSeeWassertemperatur.es";
+  const urlRivers =
+    "https://hydrographie.ktn.gv.at/DE/repos/evoscripts/hydrografischer/getFluesseWassertemperatur.es";
+
+  try {
+    const promiseLakes = fetch(urlLakes);
+    const promiseRivers = fetch(urlRivers);
+
+    const [responseLakes, responseRivers] = await Promise.all([
+      promiseLakes,
+      promiseRivers,
+    ]);
+
+    if (!responseLakes.ok) {
+      throw new Error(`HTTP error! status: ${responseLakes.status}`);
+    }
+
+    const dataLakes: {
+      data: CarinthiaLake[];
+    } = await responseLakes.json();
+
+    if (!responseRivers.ok) {
+      throw new Error(`HTTP error! status: ${responseRivers.status}`);
+    }
+
+    const dataRivers: {
+      data: CarinthiaRiver[];
+    } = await responseRivers.json();
+
+    const result: Waters[] = [];
+
+    for (let i = 0; i < dataLakes.data.length; i++) {
+      const lake = dataLakes.data[i];
+      const [date, time] = lake.datum.split(" ");
+      const dateSplit = date.split(".");
+      const newDate = `${dateSplit[2]}-${dateSplit[1]}-${dateSplit[0]} ${time}`;
+      result.push({
+        BUNDESLAND: "Kärnten",
+        NAME: lake.gewasser + " (" + lake.station + ")",
+        AGES: false,
+        SICHTTIEFE: undefined,
+        QUALITÄT: undefined,
+        TEMPERATUR: parseFloat(lake.metrics2.replace(",", ".")),
+        DATUM: newDate,
+        data: [],
+        RECENT: dateIsRecent(newDate),
+      });
+    }
+
+    for (let i = 0; i < dataRivers.data.length; i++) {
+      const river = dataRivers.data[i];
+      const [date, time] = river.datum.split(" ");
+      const dateSplit = date.split(".");
+      const newDate = `${dateSplit[2]}-${dateSplit[1]}-${dateSplit[0]} ${time}`;
+      result.push({
+        BUNDESLAND: "Kärnten",
+        NAME: river.gewasser + " (" + river.station + ")",
+        AGES: false,
+        SICHTTIEFE: undefined,
+        QUALITÄT: undefined,
+        TEMPERATUR: parseFloat(river.level.replace(",", ".")),
+        DATUM: newDate,
+        data: [],
+        RECENT: dateIsRecent(newDate),
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
