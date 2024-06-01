@@ -1,3 +1,5 @@
+import { load } from "cheerio";
+
 type LakesData = {
   VERSION: string;
   BUNDESLAENDER: Bundeslaender[];
@@ -86,6 +88,7 @@ const cacheAGES = new Map<string, Data[]>();
 const cacheTimestamp = new Map<string, number>();
 
 export async function fetchDataAGES(): Promise<Data[]> {
+  console.log("test");
   if (cacheAGES.has("data") && cacheTimestamp.has("data")) {
     const timestamp = cacheTimestamp.get("data") as number;
     const now = Date.now();
@@ -145,11 +148,10 @@ export async function tableData(): Promise<Waters[]> {
 
   const fetchAGES = fetch(URL_AGES);
   const fetchOÖ = fetch(URL_OÖ);
+  const fetchAusseerlandPromise = fetchAusseerland();
 
-  const [responseAGES, responseOÖ] = await Promise.allSettled([
-    fetchAGES,
-    fetchOÖ,
-  ]);
+  const [responseAGES, responseOÖ, responseAusseerland] =
+    await Promise.allSettled([fetchAGES, fetchOÖ, fetchAusseerlandPromise]);
 
   if (responseAGES.status === "rejected") console.error(responseAGES.reason);
   if (responseOÖ.status === "rejected") console.error(responseOÖ.reason);
@@ -180,6 +182,11 @@ export async function tableData(): Promise<Waters[]> {
     const decoder = new TextDecoder("ISO-8859-1");
     const decoded = decoder.decode(resultOÖ);
     const data = parseZRXP(decoded);
+    waters = waters.concat(data);
+  }
+
+  if (responseAusseerland.status === "fulfilled") {
+    const data = responseAusseerland.value;
     waters = waters.concat(data);
   }
 
@@ -255,4 +262,51 @@ function parseZRXP(content: string) {
   }
 
   return data;
+}
+
+/**
+ * @description E-Mail from 2024-31-05, Tourismusverband Ausseerland Salzkammergut, there is no API for this data. They manually insert the data around 3 times a week based on reported data (Montag, Mittwoch, Freitag). Additionally they send the data to Bergfex.
+ */
+export async function fetchAusseerland() {
+  try {
+    const url =
+      "https://www.steiermark.com/de/Ausseerland-Salzkammergut/Region/Sommerfrische/Seen-im-Ausseerland/Wassertemperaturen";
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const html = await response.text();
+    const $ = load(html);
+
+    /* The date is in the last table header */
+    const tableHead = $("table thead tr th").last().text().trim();
+    const dateMatch = tableHead.match(/\((.*?)\)/);
+    const date = dateMatch ? dateMatch[1] : "";
+    const isoDate = date.replace(/(\d{2})\.(\d{2})\.(\d{4})/, "$3-$2-$1");
+
+    const tableRows = $("table tbody tr");
+    const data: Waters[] = [];
+
+    tableRows.each((_index, row) => {
+      const gewasser = $(row).find("td").first().text().trim();
+      const temperatur = $(row).find("td").last().text().trim();
+
+      data.push({
+        BUNDESLAND: "Steiermark",
+        NAME: gewasser,
+        AGES: false,
+        SICHTTIEFE: undefined,
+        QUALITÄT: undefined,
+        TEMPERATUR: parseFloat(temperatur),
+        DATUM: isoDate,
+        data: [],
+      });
+    });
+
+    return data;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
