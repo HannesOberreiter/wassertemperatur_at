@@ -2,7 +2,7 @@
 import DefaultLayout from "../layouts/DefaultLayout.astro";
 import { STATES, tableData, timeoutWrapper, type Waters } from "../fetchData";
 const filter = Object.values(STATES);
-const lakes = (await timeoutWrapper(tableData)) as Waters[];
+const lakes = (await timeoutWrapper(tableData)).filter(Boolean) as Waters[];
 ---
 
 <DefaultLayout title="Wassertemperatur">
