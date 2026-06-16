@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -50,6 +52,9 @@ func NewServer(db *sql.DB) http.Handler {
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	data, err := s.pageData(r, false)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
 		slog.Error("Data could not be loaded", "error", err)
 		http.Error(w, "Daten konnten nicht geladen werden", http.StatusInternalServerError)
 		return
