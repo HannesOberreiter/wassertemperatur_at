@@ -14,7 +14,7 @@ import (
 func main() {
 	db, err := internal.OpenDB(env("SQL_PATH", "db/wasser.db"))
 	if err != nil {
-		slog.Error("Datenbank konnte nicht geöffnet werden", "error", err)
+		slog.Error("Database could not be opened", "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -23,7 +23,7 @@ func main() {
 		fetchCtx, cancelFetch := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancelFetch()
 		if err := internal.UpdateTemperatures(fetchCtx, db); err != nil {
-			slog.Error("Datenabruf fehlgeschlagen", "error", err)
+			slog.Error("Data fetch failed", "error", err)
 			os.Exit(1)
 		}
 		return
@@ -33,9 +33,9 @@ func main() {
 
 	server := &http.Server{Addr: ":1323", Handler: internal.NewServer(db)}
 	go func() {
-		slog.Info("Server läuft", "addr", server.Addr)
+		slog.Info("Server started", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Serverfehler", "error", err)
+			slog.Error("Server error", "error", err)
 		}
 	}()
 
@@ -62,6 +62,7 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 	}
 	duration, err := time.ParseDuration(value)
 	if err != nil {
+		slog.Warn("Invalid duration, using fallback", "key", key, "value", value, "fallback", fallback)
 		return fallback
 	}
 	return duration

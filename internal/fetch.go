@@ -26,16 +26,23 @@ const (
 
 func StartCron(db *sql.DB, interval time.Duration) {
 	if interval <= 0 {
+		slog.Info("Cron job disabled", "interval", interval)
 		return
 	}
+	slog.Info("Cron job scheduled", "interval", interval, "first_run_in", interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
+	for scheduledAt := range ticker.C {
+		startedAt := time.Now()
+		slog.Info("Cron job started", "scheduled_at", scheduledAt.Format(time.RFC3339))
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		if err := UpdateTemperatures(ctx, db); err != nil {
-			slog.Warn("Cronjob fehlgeschlagen", "error", err)
-		}
+		err := UpdateTemperatures(ctx, db)
 		cancel()
+		if err != nil {
+			slog.Warn("Cron job failed", "error", err, "duration", time.Since(startedAt))
+			continue
+		}
+		slog.Info("Cron job completed", "duration", time.Since(startedAt))
 	}
 }
 
@@ -46,12 +53,16 @@ func UpdateTemperatures(ctx context.Context, db *sql.DB) error {
 	for _, fetcher := range fetchers {
 		part, err := fetcher(ctx)
 		if err != nil {
-			slog.Warn("Quelle fehlgeschlagen", "error", err)
+			slog.Warn("Source failed", "error", err)
 			continue
 		}
 		readings = append(readings, part...)
 	}
-	return SaveReadings(ctx, db, readings)
+	if err := SaveReadings(ctx, db, readings); err != nil {
+		return err
+	}
+	slog.Info("Data fetch completed", "readings", len(readings))
+	return nil
 }
 
 type agesResponse struct {
