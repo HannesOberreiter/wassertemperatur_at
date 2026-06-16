@@ -26,4 +26,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: hannesoberreiter/wassertemperatur_at:latest
+          tags: |
+            hannesoberreiter/wassertemperatur_at:latest
+            hannesoberreiter/wassertemperatur_at:${{ github.ref_name }}                                              
