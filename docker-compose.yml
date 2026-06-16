@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    container_name: wassertemperatur_at
+    restart: unless-stopped
+    environment:
+      SQL_PATH: /db/wasser.db
+      CRON_INTERVAL: 1h
+    volumes:
+      - ./db:/db
+    ports:
+      - "1323:1323"
