@@ -24,6 +24,7 @@ const (
 	urlAusseerland = "https://www.steiermark.com/de/Ausseerland-Salzkammergut/Region/Sommerfrische/Seen-im-Ausseerland/Wassertemperaturen"
 	urlVOWIS       = "https://vowis.vorarlberg.at/stationsInfo/tbl_Abflussstationen.aspx"
 	urlVOWISLake   = "https://vowis.vorarlberg.at/stationswrapper/bodensee"
+	urlBurgenland  = "https://wasser.bgld.gv.at/hydrographie/die-seen?type=999"
 )
 
 func StartCron(db *sql.DB, interval time.Duration) {
@@ -51,7 +52,7 @@ func StartCron(db *sql.DB, interval time.Duration) {
 // UpdateTemperatures fetches every source independently; one broken source must not block the rest.
 func UpdateTemperatures(ctx context.Context, db *sql.DB) error {
 	var readings []Reading
-	fetchers := []func(context.Context) ([]Reading, error){fetchAGES, fetchOOE, fetchCarinthia, fetchAusseerland, fetchVOWIS, fetchVOWISLake}
+	fetchers := []func(context.Context) ([]Reading, error){fetchAGES, fetchOOE, fetchCarinthia, fetchAusseerland, fetchVOWIS, fetchVOWISLake, fetchBurgenland}
 	for _, fetcher := range fetchers {
 		part, err := fetcher(ctx)
 		if err != nil {
@@ -243,6 +244,10 @@ var (
 	vowisCellPattern             = regexp.MustCompile(`(?is)<td[^>]*>(.*?)</td>`)
 	vowisStationPattern          = regexp.MustCompile(`(?is)hzbnr=(\d+).*?>([^<]+)</a>\s*/\s*([^<]+)`)
 	vowisLakeCurrentPattern      = regexp.MustCompile(`(?is)<table id="seemesswerte".*?<tbody>\s*<tr>.*?Aktueller Wert.*?<span[^>]*>\s*(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})\s*</span>\s*</td>\s*<td[^>]*>.*?</td>\s*<td[^>]*>\s*([0-9.,-]+)\s*°C`)
+	burgenlandStationPattern     = regexp.MustCompile(`(?is)<div class="tooltip" id="tooltip-station-(\d+)">(.*?)</div>`)
+	burgenlandTitlePattern       = regexp.MustCompile(`(?is)tooltip_station_title">\s*(.*?)\s*</h4>`)
+	burgenlandTimePattern        = regexp.MustCompile(`<li class="time">\s*(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})\s+MEZ\s*</li>`)
+	burgenlandTemperaturePattern = regexp.MustCompile(`(?is)<li class="icon hydro-watertemp-small">\s*([0-9.,-]+)\s*(?:&deg;|°)C\s*</li>`)
 	ausseerlandTeaserPattern     = regexp.MustCompile(`(?is)<article class="infra-event-teaser.*?</article>`)
 	ausseerlandLinkPattern       = regexp.MustCompile(`(?is)<a href="([^"]+)"[^>]*>\s*([^<]+?)\s*</a>`)
 	ausseerlandDatePattern       = regexp.MustCompile(`Aktualisiert:\s*(\d{2}\.\d{2}\.\d{4})`)
@@ -399,6 +404,52 @@ func parseVOWISLake(html string) []Reading {
 		MeasuredAt:  measuredAt,
 		Temperature: sql.NullFloat64{Float64: temperature, Valid: true},
 	}}
+}
+
+func fetchBurgenland(ctx context.Context) ([]Reading, error) {
+	body, err := get(ctx, urlBurgenland)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+	return parseBurgenland(string(content)), nil
+}
+
+func parseBurgenland(html string) []Reading {
+	var readings []Reading
+	for _, station := range burgenlandStationPattern.FindAllStringSubmatch(html, -1) {
+		title := burgenlandTitlePattern.FindStringSubmatch(station[2])
+		measured := burgenlandTimePattern.FindStringSubmatch(station[2])
+		temperatureValue := burgenlandTemperaturePattern.FindStringSubmatch(station[2])
+		if len(title) != 2 || len(measured) != 2 || len(temperatureValue) != 2 {
+			continue
+		}
+		nameParts := strings.SplitN(cleanHTML(title[1]), " / ", 2)
+		if len(nameParts) != 2 {
+			continue
+		}
+		measuredAt, err := time.Parse("02.01.2006 15:04", measured[1])
+		if err != nil {
+			continue
+		}
+		temperature, err := strconv.ParseFloat(strings.ReplaceAll(temperatureValue[1], ",", "."), 64)
+		if err != nil || temperature < -50 || temperature > 50 {
+			continue
+		}
+		readings = append(readings, Reading{
+			SourceKey:   "bgld:" + station[1],
+			Name:        strings.TrimSpace(nameParts[1]) + " (" + strings.TrimSpace(nameParts[0]) + ")",
+			State:       "Burgenland",
+			Source:      "Wasserportal Burgenland",
+			MeasuredAt:  measuredAt,
+			Temperature: sql.NullFloat64{Float64: temperature, Valid: true},
+		})
+	}
+	return readings
 }
 
 func cleanHTML(value string) string {

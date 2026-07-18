@@ -65,3 +65,32 @@ func TestParseVOWISLake(t *testing.T) {
 		t.Fatalf("got time %v, want %v", reading.MeasuredAt, wantTime)
 	}
 }
+
+func TestParseBurgenland(t *testing.T) {
+	html := `<div class="tooltip" id="tooltip-station-58">
+<h4 class="tooltip_station_title">Apetlon - A79 / Neusiedler See</h4>
+<ul><li class="time">18.07.2026 12:30 MEZ</li>
+<li class="icon hydro-watertemp-small"> 25,1 &deg;C</li></ul></div>
+<div class="tooltip" id="tooltip-station-616">
+<h4 class="tooltip_station_title">Apetlon - Fuchslochlacke / Fuchslochlacke</h4>
+<ul><li class="time">18.07.2026 05:45 MEZ</li></ul></div>`
+
+	readings := parseBurgenland(html)
+	if len(readings) != 1 {
+		t.Fatalf("got %d readings, want 1", len(readings))
+	}
+	reading := readings[0]
+	if reading.SourceKey != "bgld:58" || reading.Name != "Neusiedler See (Apetlon - A79)" {
+		t.Fatalf("unexpected station: %#v", reading)
+	}
+	if reading.State != "Burgenland" || reading.Source != "Wasserportal Burgenland" {
+		t.Fatalf("unexpected source: %#v", reading)
+	}
+	if !reading.Temperature.Valid || reading.Temperature.Float64 != 25.1 {
+		t.Fatalf("unexpected temperature: %#v", reading.Temperature)
+	}
+	wantTime := time.Date(2026, time.July, 18, 12, 30, 0, 0, time.UTC)
+	if !reading.MeasuredAt.Equal(wantTime) {
+		t.Fatalf("got time %v, want %v", reading.MeasuredAt, wantTime)
+	}
+}
