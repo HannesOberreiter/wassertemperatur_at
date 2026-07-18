@@ -142,9 +142,36 @@ func ListStates(ctx context.Context, db *sql.DB, source string) ([]string, error
 }
 
 func listWaters(ctx context.Context, db *sql.DB, search, state, source string) ([]Water, error) {
-	rows, err := db.QueryContext(ctx, `select id, slug, name, state, source from waters
-		where (? = '' or lower(name) like '%' || lower(?) || '%') and (? = '' or state = ?) and (? = '' or (substr(?, 1, 1) = '!' and source != substr(?, 2)) or source = ?)
-		order by name`, search, search, state, state, source, source, source, source)
+	rows, err := db.QueryContext(ctx, `with selected as (
+		select id, slug, name, state, source from waters
+		where (? = '' or lower(name) like '%' || lower(?) || '%')
+			and (? = '' or state = ?)
+			and (? = '' or (substr(?, 1, 1) = '!' and source != substr(?, 2)) or source = ?)
+	), latest_ids as (
+		select id as water_id, (
+			select id from observations where water_id = selected.id order by measured_at desc limit 1
+		) as observation_id from selected
+	), latest as (
+		select observations.* from observations join latest_ids on observations.id = latest_ids.observation_id
+	), weekly as (
+		select latest.water_id,
+			(select avg(temperature) from observations
+				where water_id = latest.water_id
+					and measured_at >= strftime('%Y-%m-%dT%H:%M:%SZ', latest.measured_at, '-7 days')) as current_avg,
+			(select avg(temperature) from observations
+				where water_id = latest.water_id
+					and measured_at >= strftime('%Y-%m-%dT%H:%M:%SZ', latest.measured_at, '-14 days')
+					and measured_at < strftime('%Y-%m-%dT%H:%M:%SZ', latest.measured_at, '-7 days')) as previous_avg
+		from latest
+	)
+	select selected.id, selected.slug, selected.name, selected.state, selected.source,
+		latest.measured_at, latest.temperature, latest.depth, latest.quality,
+		case when weekly.current_avg is null or weekly.previous_avg is null or weekly.previous_avg = 0 then null
+			else (weekly.current_avg - weekly.previous_avg) / weekly.previous_avg * 100 end
+	from selected
+	left join latest on latest.water_id = selected.id
+	left join weekly on weekly.water_id = selected.id
+	order by selected.name`, search, search, state, state, source, source, source, source)
 	if err != nil {
 		return nil, err
 	}
@@ -153,25 +180,18 @@ func listWaters(ctx context.Context, db *sql.DB, search, state, source string) (
 	var waters []Water
 	for rows.Next() {
 		var water Water
-		if err := rows.Scan(&water.ID, &water.Slug, &water.Name, &water.State, &water.Source); err != nil {
+		var measuredAt sql.NullString
+		if err := rows.Scan(&water.ID, &water.Slug, &water.Name, &water.State, &water.Source, &measuredAt, &water.Temperature, &water.Depth, &water.Quality, &water.Change); err != nil {
 			return nil, err
 		}
-		latest, err := LatestObservations(ctx, db, water.ID, 2)
-		if err != nil {
-			return nil, err
+		if measuredAt.Valid {
+			parsed, err := time.Parse(time.RFC3339, measuredAt.String)
+			if err != nil {
+				return nil, err
+			}
+			water.MeasuredAt = sql.NullTime{Time: parsed, Valid: true}
+			water.Recent = time.Since(parsed) < 14*24*time.Hour
 		}
-		if len(latest) > 0 {
-			water.MeasuredAt = sql.NullTime{Time: latest[0].MeasuredAt, Valid: true}
-			water.Temperature = latest[0].Temperature
-			water.Depth = latest[0].Depth
-			water.Quality = latest[0].Quality
-			water.Recent = time.Since(latest[0].MeasuredAt) < 14*24*time.Hour
-		}
-		observations, err := LatestObservations(ctx, db, water.ID, 10000)
-		if err != nil {
-			return nil, err
-		}
-		water.Change = weeklyAverageChange(observations)
 		waters = append(waters, water)
 	}
 	return waters, rows.Err()
