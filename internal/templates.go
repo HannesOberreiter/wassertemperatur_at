@@ -147,7 +147,7 @@ const pageTemplates = `
 	<p class="hint">Sichttiefe zeigt, wie tief man ins Wasser sehen kann. Enterokokken und E. coli sind Bakterienwerte und Hinweise auf mögliche fäkale Verunreinigung; niedrige Werte sind besser.</p>
 	{{else}}
 	<table>
-		<thead><tr><th>Tag</th><th>Durchschnitt</th><th>Median</th><th>Hoch</th><th>Tief</th><th>Messungen</th></tr></thead>
+		<thead><tr><th>Tag</th><th class="num">Durchschnitt</th><th class="num">Median</th><th class="num">Hoch</th><th class="num">Tief</th><th class="num">Messungen</th></tr></thead>
 		<tbody>
 		{{range .Summaries}}
 		<tr><td>{{day .Day}}</td><td class="num">{{plainTemp .Avg}}</td><td class="num">{{plainTemp .Median}}</td><td class="num">{{plainTemp .High}}</td><td class="num">{{plainTemp .Low}}</td><td class="num">{{.Count}}</td></tr>
