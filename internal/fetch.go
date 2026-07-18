@@ -23,6 +23,7 @@ const (
 	urlKtnRivers   = "https://hydrographie.ktn.gv.at/DE/repos/evoscripts/hydrografischer/getFluesseWassertemperatur.es"
 	urlAusseerland = "https://www.steiermark.com/de/Ausseerland-Salzkammergut/Region/Sommerfrische/Seen-im-Ausseerland/Wassertemperaturen"
 	urlVOWIS       = "https://vowis.vorarlberg.at/stationsInfo/tbl_Abflussstationen.aspx"
+	urlVOWISLake   = "https://vowis.vorarlberg.at/stationswrapper/bodensee"
 )
 
 func StartCron(db *sql.DB, interval time.Duration) {
@@ -50,7 +51,7 @@ func StartCron(db *sql.DB, interval time.Duration) {
 // UpdateTemperatures fetches every source independently; one broken source must not block the rest.
 func UpdateTemperatures(ctx context.Context, db *sql.DB) error {
 	var readings []Reading
-	fetchers := []func(context.Context) ([]Reading, error){fetchAGES, fetchOOE, fetchCarinthia, fetchAusseerland, fetchVOWIS}
+	fetchers := []func(context.Context) ([]Reading, error){fetchAGES, fetchOOE, fetchCarinthia, fetchAusseerland, fetchVOWIS, fetchVOWISLake}
 	for _, fetcher := range fetchers {
 		part, err := fetcher(ctx)
 		if err != nil {
@@ -241,6 +242,7 @@ var (
 	vowisRowPattern              = regexp.MustCompile(`(?is)<tr[^>]*>(.*?)</tr>`)
 	vowisCellPattern             = regexp.MustCompile(`(?is)<td[^>]*>(.*?)</td>`)
 	vowisStationPattern          = regexp.MustCompile(`(?is)hzbnr=(\d+).*?>([^<]+)</a>\s*/\s*([^<]+)`)
+	vowisLakeCurrentPattern      = regexp.MustCompile(`(?is)<table id="seemesswerte".*?<tbody>\s*<tr>.*?Aktueller Wert.*?<span[^>]*>\s*(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})\s*</span>\s*</td>\s*<td[^>]*>.*?</td>\s*<td[^>]*>\s*([0-9.,-]+)\s*°C`)
 	ausseerlandTeaserPattern     = regexp.MustCompile(`(?is)<article class="infra-event-teaser.*?</article>`)
 	ausseerlandLinkPattern       = regexp.MustCompile(`(?is)<a href="([^"]+)"[^>]*>\s*([^<]+?)\s*</a>`)
 	ausseerlandDatePattern       = regexp.MustCompile(`Aktualisiert:\s*(\d{2}\.\d{2}\.\d{4})`)
@@ -361,6 +363,42 @@ func parseVOWIS(html string) []Reading {
 		})
 	}
 	return readings
+}
+
+func fetchVOWISLake(ctx context.Context) ([]Reading, error) {
+	body, err := get(ctx, urlVOWISLake)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+	return parseVOWISLake(string(content)), nil
+}
+
+func parseVOWISLake(html string) []Reading {
+	match := vowisLakeCurrentPattern.FindStringSubmatch(html)
+	if len(match) != 3 {
+		return nil
+	}
+	measuredAt, err := time.Parse("02.01.2006 15:04", match[1])
+	if err != nil {
+		return nil
+	}
+	temperature, err := strconv.ParseFloat(strings.ReplaceAll(match[2], ",", "."), 64)
+	if err != nil || temperature < -50 || temperature > 50 {
+		return nil
+	}
+	return []Reading{{
+		SourceKey:   "vowis:200337",
+		Name:        "Bodensee (Bregenz)",
+		State:       "Vorarlberg",
+		Source:      "Wasser Online Vorarlberg",
+		MeasuredAt:  measuredAt,
+		Temperature: sql.NullFloat64{Float64: temperature, Valid: true},
+	}}
 }
 
 func cleanHTML(value string) string {

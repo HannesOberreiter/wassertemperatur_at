@@ -42,3 +42,26 @@ func TestParseVOWIS(t *testing.T) {
 		t.Fatalf("got time %v, want %v", reading.MeasuredAt, wantTime)
 	}
 }
+
+func TestParseVOWISLake(t *testing.T) {
+	html := `<table id="seemesswerte"><tbody><tr>
+<td><span>Aktueller Wert</span><br><span class="fs-8">18.07.2026 12:20</span></td>
+<td>315 cm</td><td>25,4 °C</td><td>24,9 °C</td>
+</tr></tbody></table>`
+
+	readings := parseVOWISLake(html)
+	if len(readings) != 1 {
+		t.Fatalf("got %d readings, want 1", len(readings))
+	}
+	reading := readings[0]
+	if reading.SourceKey != "vowis:200337" || reading.Name != "Bodensee (Bregenz)" {
+		t.Fatalf("unexpected station: %#v", reading)
+	}
+	if !reading.Temperature.Valid || reading.Temperature.Float64 != 25.4 {
+		t.Fatalf("unexpected temperature: %#v", reading.Temperature)
+	}
+	wantTime := time.Date(2026, time.July, 18, 12, 20, 0, 0, time.UTC)
+	if !reading.MeasuredAt.Equal(wantTime) {
+		t.Fatalf("got time %v, want %v", reading.MeasuredAt, wantTime)
+	}
+}
