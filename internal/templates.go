@@ -179,7 +179,8 @@ const pageTemplates = `
 		<a href="https://ages.at/" target="_blank" rel="external" referrerpolicy="origin">AGES</a><br>
 		<a href="https://data.ooe.gv.at/" target="_blank" rel="external" referrerpolicy="origin">Land Oberösterreich</a><br>
 		<a href="https://www.steiermark.com/de/Ausseerland-Salzkammergut" target="_blank" rel="external" referrerpolicy="origin">Ausseerland-Salzkammergut</a><br>
-		<a href="https://hydrographie.ktn.gv.at/" target="_blank" rel="external" referrerpolicy="origin">Land Kärnten</a>
+		<a href="https://hydrographie.ktn.gv.at/" target="_blank" rel="external" referrerpolicy="origin">Land Kärnten</a><br>
+		<a href="https://vowis.vorarlberg.at/stationswrapper" target="_blank" rel="external" referrerpolicy="origin">Wasser Online Vorarlberg</a>
 	</p>
 	<h2>Projekt</h2>
 	<p>Erstellt von <a href="https://www.oberreiter.or.at/hannes" target="_blank" rel="external" referrerpolicy="origin">Hannes Oberreiter</a>. Code auf <a href="https://github.com/HannesOberreiter/wassertemperatur_at" target="_blank" rel="external" referrerpolicy="origin">GitHub</a>.</p>

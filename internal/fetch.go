@@ -22,6 +22,7 @@ const (
 	urlKtnLakes    = "https://hydrographie.ktn.gv.at/DE/repos/evoscripts/hydrografischer/getSeeWassertemperatur.es"
 	urlKtnRivers   = "https://hydrographie.ktn.gv.at/DE/repos/evoscripts/hydrografischer/getFluesseWassertemperatur.es"
 	urlAusseerland = "https://www.steiermark.com/de/Ausseerland-Salzkammergut/Region/Sommerfrische/Seen-im-Ausseerland/Wassertemperaturen"
+	urlVOWIS       = "https://vowis.vorarlberg.at/stationsInfo/tbl_Abflussstationen.aspx"
 )
 
 func StartCron(db *sql.DB, interval time.Duration) {
@@ -49,7 +50,7 @@ func StartCron(db *sql.DB, interval time.Duration) {
 // UpdateTemperatures fetches every source independently; one broken source must not block the rest.
 func UpdateTemperatures(ctx context.Context, db *sql.DB) error {
 	var readings []Reading
-	fetchers := []func(context.Context) ([]Reading, error){fetchAGES, fetchOOE, fetchCarinthia, fetchAusseerland}
+	fetchers := []func(context.Context) ([]Reading, error){fetchAGES, fetchOOE, fetchCarinthia, fetchAusseerland, fetchVOWIS}
 	for _, fetcher := range fetchers {
 		part, err := fetcher(ctx)
 		if err != nil {
@@ -237,6 +238,9 @@ func fetchCarinthia(ctx context.Context) ([]Reading, error) {
 var (
 	datePattern                  = regexp.MustCompile(`\((\d{2}\.\d{2}\.\d{4})\)`)
 	rowPattern                   = regexp.MustCompile(`(?is)<tr[^>]*>\s*<td[^>]*>(.*?)</td>.*?<td[^>]*>(.*?)</td>\s*</tr>`)
+	vowisRowPattern              = regexp.MustCompile(`(?is)<tr[^>]*>(.*?)</tr>`)
+	vowisCellPattern             = regexp.MustCompile(`(?is)<td[^>]*>(.*?)</td>`)
+	vowisStationPattern          = regexp.MustCompile(`(?is)hzbnr=(\d+).*?>([^<]+)</a>\s*/\s*([^<]+)`)
 	ausseerlandTeaserPattern     = regexp.MustCompile(`(?is)<article class="infra-event-teaser.*?</article>`)
 	ausseerlandLinkPattern       = regexp.MustCompile(`(?is)<a href="([^"]+)"[^>]*>\s*([^<]+?)\s*</a>`)
 	ausseerlandDatePattern       = regexp.MustCompile(`Aktualisiert:\s*(\d{2}\.\d{2}\.\d{4})`)
@@ -311,6 +315,52 @@ func fetchAusseerlandDetail(ctx context.Context, path string) (time.Time, sql.Nu
 		}
 	}
 	return date, sql.NullFloat64{}
+}
+
+func fetchVOWIS(ctx context.Context) ([]Reading, error) {
+	body, err := get(ctx, urlVOWIS)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+	return parseVOWIS(string(content)), nil
+}
+
+func parseVOWIS(html string) []Reading {
+	var readings []Reading
+	for _, row := range vowisRowPattern.FindAllStringSubmatch(html, -1) {
+		cells := vowisCellPattern.FindAllStringSubmatch(row[1], -1)
+		if len(cells) != 6 {
+			continue
+		}
+		station := vowisStationPattern.FindStringSubmatch(cells[0][1])
+		if len(station) != 4 {
+			continue
+		}
+		measuredAt, err := time.Parse("02.01.06 15:04", cleanHTML(cells[1][1]))
+		if err != nil {
+			continue
+		}
+		temperature, err := strconv.ParseFloat(strings.ReplaceAll(cleanHTML(cells[4][1]), ",", "."), 64)
+		if err != nil || temperature < -50 || temperature > 50 {
+			continue
+		}
+		stationName := cleanHTML(station[2])
+		waterName := cleanHTML(station[3])
+		readings = append(readings, Reading{
+			SourceKey:   "vowis:" + station[1],
+			Name:        waterName + " (" + stationName + ")",
+			State:       "Vorarlberg",
+			Source:      "Wasser Online Vorarlberg",
+			MeasuredAt:  measuredAt,
+			Temperature: sql.NullFloat64{Float64: temperature, Valid: true},
+		})
+	}
+	return readings
 }
 
 func cleanHTML(value string) string {
