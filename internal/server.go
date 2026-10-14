@@ -118,7 +118,7 @@ func (s *Server) detail(w http.ResponseWriter, r *http.Request) {
 		PrevPage:    page - 1,
 		NextPage:    page + 1,
 	}
-	if water.Source == "AGES Badegewässerdatenbank" {
+	if water.Source == agesSource {
 		observations, err := LatestObservations(r.Context(), s.db, water.ID, 30)
 		if err != nil {
 			http.Error(w, "Verlauf konnte nicht geladen werden", http.StatusInternalServerError)
@@ -154,9 +154,9 @@ func (s *Server) pageData(r *http.Request, quality bool) (PageData, error) {
 	if err != nil {
 		return PageData{}, err
 	}
-	source := "!AGES Badegewässerdatenbank"
+	source := "!" + agesSource
 	if quality {
-		source = "AGES Badegewässerdatenbank"
+		source = agesSource
 	}
 	availableStates, err := ListStates(r.Context(), s.db, source)
 	if err != nil {
@@ -216,7 +216,8 @@ func templates() *template.Template {
 			}
 			return icon + " " + fmtFloat(v, " %")
 		},
-		"detailURL": func(w Water) string { return "/gewaesser/" + strconv.FormatInt(w.ID, 10) + "/" + w.Slug },
+		"agesSource": func() string { return agesSource },
+		"detailURL":  func(w Water) string { return "/gewaesser/" + strconv.FormatInt(w.ID, 10) + "/" + w.Slug },
 	}
 	return template.Must(template.New("pages").Funcs(funcs).Parse(pageTemplates))
 }

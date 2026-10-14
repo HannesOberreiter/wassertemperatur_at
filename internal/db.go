@@ -13,6 +13,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// agesSource is the source name of the AGES bathing water data.
+// The quality page shows only this source; the temperature page excludes it.
+const agesSource = "AGES Badegewässerdatenbank"
+
 type Water struct {
 	ID          int64
 	Slug        string
@@ -115,11 +119,11 @@ func SaveReadings(ctx context.Context, db *sql.DB, readings []Reading) error {
 }
 
 func ListWaters(ctx context.Context, db *sql.DB, search, state string) ([]Water, error) {
-	return listWaters(ctx, db, search, state, "!AGES Badegewässerdatenbank")
+	return listWaters(ctx, db, search, state, "!"+agesSource)
 }
 
 func ListQualityWaters(ctx context.Context, db *sql.DB, search, state string) ([]Water, error) {
-	return listWaters(ctx, db, search, state, "AGES Badegewässerdatenbank")
+	return listWaters(ctx, db, search, state, agesSource)
 }
 
 // ListStates keeps filters honest: only states with stored data are shown.

@@ -88,7 +88,7 @@ const pageTemplates = `
 		<tbody>
 		{{range .Waters}}
 		<tr class="{{if not .Recent}}old{{end}}">
-			<td><a href="{{detailURL .}}">{{.Name}}</a><small>{{.Source}}</small></td>
+			<td><a href="{{detailURL .}}">{{.Name}}</a>{{with .Source}}<small>Quelle: {{.}}</small>{{end}}</td>
 			<td>{{.State}}</td>
 			<td>{{date .MeasuredAt}}</td>
 			<td class="num">{{temp .Temperature}}</td>
@@ -123,6 +123,7 @@ const pageTemplates = `
 	</table>
 	<p class="hint">Qualität: 1 Ausgezeichnete Badegewässerqualität, 2 Gute Badegewässerqualität, 3 Mangelhafte Badegewässerqualität, 4 Baden verboten / vom Baden wird abgeraten.</p>
 	<p class="hint">Sichttiefe zeigt, wie tief man ins Wasser sehen kann. Enterokokken und E. coli sind Bakterienwerte und Hinweise auf mögliche fäkale Verunreinigung; niedrige Werte sind besser.</p>
+	<p class="hint">Quelle: {{agesSource}}</p>
 </div>
 {{end}}
 
@@ -132,6 +133,7 @@ const pageTemplates = `
 	<p><a href="/">Zurück zur Übersicht</a></p>
 	<h1>Wassertemperatur {{.Water.Name}}</h1>
 	<p>{{.Water.Name}} liegt in {{.Water.State}}. Die Tabelle zeigt die gespeicherten Messungen.</p>
+	{{with .Water.Source}}<p>Quelle: {{.}}</p>{{end}}
 	{{if .QualityDetail}}
 	<table>
 		<thead><tr><th>Datum</th><th>Temperatur</th><th>Sichttiefe</th><th>Qualität</th><th>Enterokokken</th><th>E. coli</th></tr></thead>
