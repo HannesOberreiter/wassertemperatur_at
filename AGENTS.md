@@ -52,6 +52,7 @@ docker compose exec web /wassertemperatur fetch
 - Flat design with dark mode in `assets/css/main.css`.
 - Aquavital sponsor is shown above bottom area.
 - Sources, creator, and GitHub link are on `/impressum`.
+- Every table row and detail page shows its data source as plain text (`Quelle: …`); the quality table shows it once below the table.
 - Detail pages:
   - normal sources: daily avg/median/high/low/count with paging.
   - AGES: all reported parameters (temperature, depth, quality, enterococci, E. coli).

@@ -112,7 +112,7 @@ func fetchAGES(ctx context.Context) ([]Reading, error) {
 					SourceKey:     "ages:" + water.ID,
 					Name:          water.Name,
 					State:         state.Name,
-					Source:        "AGES Badegewässerdatenbank",
+					Source:        agesSource,
 					MeasuredAt:    date,
 					Temperature:   sql.NullFloat64{Float64: value.Temperature, Valid: true},
 					Depth:         sql.NullFloat64{Float64: value.Depth, Valid: value.Depth > 0},
