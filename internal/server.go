@@ -15,6 +15,7 @@ import (
 type Server struct {
 	db        *sql.DB
 	templates *template.Template
+	lists     *listCache
 }
 
 type PageData struct {
@@ -37,7 +38,7 @@ type PageData struct {
 }
 
 func NewServer(db *sql.DB) http.Handler {
-	server := &Server{db: db, templates: templates()}
+	server := &Server{db: db, templates: templates(), lists: newListCache(listCacheTTL)}
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	mux.HandleFunc("/", server.index)
@@ -144,25 +145,12 @@ func (s *Server) imprint(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) pageData(r *http.Request, quality bool) (PageData, error) {
 	search := r.URL.Query().Get("suche")
 	state := r.URL.Query().Get("bundesland")
-	var waters []Water
-	var err error
-	if quality {
-		waters, err = ListQualityWaters(r.Context(), s.db, search, state)
-	} else {
-		waters, err = ListWaters(r.Context(), s.db, search, state)
-	}
+	lists, err := s.lists.get(r.Context(), s.db, quality)
 	if err != nil {
 		return PageData{}, err
 	}
-	source := "!" + agesSource
-	if quality {
-		source = agesSource
-	}
-	availableStates, err := ListStates(r.Context(), s.db, source)
-	if err != nil {
-		return PageData{}, err
-	}
-	return PageData{Waters: waters, Search: search, State: state, States: availableStates, Now: time.Now(), QualityPage: quality}, nil
+	waters := filterWaters(lists.waters, search, state)
+	return PageData{Waters: waters, Search: search, State: state, States: lists.states, Now: time.Now(), QualityPage: quality}, nil
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data PageData) {

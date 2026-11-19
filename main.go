@@ -31,7 +31,15 @@ func main() {
 
 	go internal.StartCron(db, envDuration("CRON_INTERVAL", time.Hour))
 
-	server := &http.Server{Addr: ":1323", Handler: internal.NewServer(db)}
+	// Timeouts stop slow or idle clients from holding connections and goroutines.
+	server := &http.Server{
+		Addr:              ":1323",
+		Handler:           internal.NewServer(db),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
 	go func() {
 		slog.Info("Server started", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

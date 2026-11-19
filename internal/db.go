@@ -66,6 +66,10 @@ type Reading struct {
 	EColiOp       string
 }
 
+// maxOpenConns bounds the SQLite connections. Each connection keeps its own
+// page cache, so an unbounded pool grows memory with parallel requests.
+const maxOpenConns = 4
+
 func OpenDB(path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
@@ -74,6 +78,8 @@ func OpenDB(path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxOpenConns)
 	if _, err := db.Exec(schema); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -207,34 +213,46 @@ func GetWater(ctx context.Context, db *sql.DB, id string) (Water, error) {
 	return water, err
 }
 
+// DailySummaries loads only the days of the requested page. The median needs
+// the single values, so the values of those days are read, not of all days.
 func DailySummaries(ctx context.Context, db *sql.DB, waterID int64, limit, offset int) ([]DailySummary, error) {
-	observations, err := LatestObservations(ctx, db, waterID, 10000)
+	keys, err := summaryDays(ctx, db, waterID, limit, offset)
+	if err != nil || len(keys) == 0 {
+		return nil, err
+	}
+	// keys are newest first; the range covers the first through the last day.
+	from := keys[len(keys)-1]
+	lastDay, err := time.Parse("2006-01-02", keys[0])
 	if err != nil {
 		return nil, err
 	}
-	byDay := map[string][]float64{}
-	for _, observation := range observations {
-		if observation.Temperature.Valid {
-			key := observation.MeasuredAt.Format("2006-01-02")
-			byDay[key] = append(byDay[key], observation.Temperature.Float64)
+	until := lastDay.AddDate(0, 0, 1).Format("2006-01-02")
+
+	rows, err := db.QueryContext(ctx, `select substr(measured_at, 1, 10), temperature from observations
+		where water_id = ? and temperature is not null and measured_at >= ? and measured_at < ?`, waterID, from, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byDay := make(map[string][]float64, len(keys))
+	for rows.Next() {
+		var key string
+		var temperature float64
+		if err := rows.Scan(&key, &temperature); err != nil {
+			return nil, err
 		}
+		byDay[key] = append(byDay[key], temperature)
 	}
-	keys := make([]string, 0, len(byDay))
-	for key := range byDay {
-		keys = append(keys, key)
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
-	if offset > len(keys) {
-		return nil, nil
-	}
-	end := offset + limit
-	if end > len(keys) {
-		end = len(keys)
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	summaries := make([]DailySummary, 0, end-offset)
-	for _, key := range keys[offset:end] {
+	summaries := make([]DailySummary, 0, len(keys))
+	for _, key := range keys {
 		values := byDay[key]
+		if len(values) == 0 {
+			continue
+		}
 		sort.Float64s(values)
 		var sum float64
 		for _, value := range values {
@@ -248,6 +266,25 @@ func DailySummaries(ctx context.Context, db *sql.DB, waterID int64, limit, offse
 		summaries = append(summaries, DailySummary{Day: day, Avg: sum / float64(len(values)), Median: median, Low: values[0], High: values[len(values)-1], Count: len(values)})
 	}
 	return summaries, nil
+}
+
+func summaryDays(ctx context.Context, db *sql.DB, waterID int64, limit, offset int) ([]string, error) {
+	rows, err := db.QueryContext(ctx, `select substr(measured_at, 1, 10) as day from observations
+		where water_id = ? and temperature is not null
+		group by day order by day desc limit ? offset ?`, waterID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, rows.Err()
 }
 
 func LatestObservations(ctx context.Context, db *sql.DB, waterID int64, limit int) ([]Observation, error) {
